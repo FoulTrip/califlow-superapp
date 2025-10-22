@@ -13,6 +13,8 @@ import {
     Legend,
     Filler
 } from "chart.js"
+import useMovementDetection, { type MovementType } from "@/hooks/useMovementDetection"
+import useSpeech from "@/hooks/useSpeech"
 
 // Registrar componentes de Chart.js
 ChartJS.register(
@@ -36,9 +38,22 @@ interface AnalyticsSummary {
 interface AnalyticsSidebarProps {
     isCollapsed: boolean
     onToggle: () => void
+    userLocation: { lat: number; lng: number } | null
+    isRouteActive?: boolean
+    onCancelRoute?: () => void
+    voiceEnabled?: boolean
+    onToggleVoice?: () => void
 }
 
-function AnalyticsSidebar({ isCollapsed, onToggle }: AnalyticsSidebarProps) {
+function AnalyticsSidebar({
+    isCollapsed,
+    onToggle,
+    userLocation,
+    isRouteActive = false,
+    onCancelRoute,
+    voiceEnabled = true,
+    onToggleVoice
+}: AnalyticsSidebarProps) {
     const [data, setData] = useState<AnalyticsSummary>({
         activeTourists: 0,
         busiestZone: "-",
@@ -46,6 +61,45 @@ function AnalyticsSidebar({ isCollapsed, onToggle }: AnalyticsSidebarProps) {
         trend: []
     })
     const [isLoading, setIsLoading] = useState(true)
+
+    // Detectar tipo de movimiento
+    const movementData = useMovementDetection(userLocation)
+
+    // Hook de speech
+    const { isSupported } = useSpeech()
+
+    // Función para obtener icono según tipo de movimiento
+    const getMovementIcon = (type: MovementType) => {
+        switch (type) {
+            case 'stationary': return '🧍'
+            case 'walking': return '🚶'
+            case 'running': return '🏃'
+            case 'driving': return '🚗'
+            default: return '❓'
+        }
+    }
+
+    // Función para obtener texto según tipo de movimiento
+    const getMovementText = (type: MovementType) => {
+        switch (type) {
+            case 'stationary': return 'Estacionario'
+            case 'walking': return 'Caminando'
+            case 'running': return 'Corriendo'
+            case 'driving': return 'En Vehículo'
+            default: return 'Detectando...'
+        }
+    }
+
+    // Función para obtener color según tipo de movimiento
+    const getMovementColor = (type: MovementType) => {
+        switch (type) {
+            case 'stationary': return 'bg-gray-100 text-gray-700 border-gray-200'
+            case 'walking': return 'bg-green-100 text-green-700 border-green-200'
+            case 'running': return 'bg-yellow-100 text-yellow-700 border-yellow-200'
+            case 'driving': return 'bg-blue-100 text-blue-700 border-blue-200'
+            default: return 'bg-gray-100 text-gray-500 border-gray-200'
+        }
+    }
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -109,7 +163,6 @@ function AnalyticsSidebar({ isCollapsed, onToggle }: AnalyticsSidebarProps) {
 
     return (
         <>
-            {/* Toggle Button */}
             {isCollapsed && (
                 <button
                     onClick={onToggle}
@@ -151,6 +204,88 @@ function AnalyticsSidebar({ isCollapsed, onToggle }: AnalyticsSidebarProps) {
                         </div>
                     ) : (
                         <div className="space-y-4">
+                            {/* Detector de Movimiento */}
+                            <div className={`rounded-lg p-5 border-2 ${getMovementColor(movementData.type)}`}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className="text-4xl">
+                                            {getMovementIcon(movementData.type)}
+                                        </div>
+                                        <div>
+                                            <span className="text-sm font-semibold block">
+                                                {getMovementText(movementData.type)}
+                                            </span>
+                                            <span className="text-xs opacity-75">
+                                                {movementData.speed.toFixed(1)} km/h
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-xs opacity-75 mb-1">Confianza</div>
+                                        <div className="text-lg font-bold">{movementData.confidence}%</div>
+                                    </div>
+                                </div>
+                                {movementData.distance > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-current border-opacity-20">
+                                        <div className="flex justify-between text-xs opacity-75">
+                                            <span>Distancia recorrida</span>
+                                            <span className="font-semibold">{movementData.distance.toFixed(0)}m</span>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Controles: Botón de Voz y Cancelar Ruta */}
+                            <div className="space-y-2">
+                                {/* Botón de control de voz */}
+                                {isSupported && onToggleVoice && (
+                                    <button
+                                        onClick={onToggleVoice}
+                                        className={`
+                                            w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
+                                            flex items-center justify-center gap-2 shadow-sm
+                                            ${voiceEnabled
+                                                ? 'bg-blue-500 text-white hover:bg-blue-600'
+                                                : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                            }
+                                        `}
+                                        title={voiceEnabled ? 'Desactivar voz' : 'Activar voz'}
+                                    >
+                                        {voiceEnabled ? (
+                                            <>
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                                                </svg>
+                                                <span>Voz Activada</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                </svg>
+                                                <span>Voz Desactivada</span>
+                                            </>
+                                        )}
+                                    </button>
+                                )}
+
+                                {/* Botón de cancelar ruta */}
+                                {isRouteActive && onCancelRoute && (
+                                    <button
+                                        onClick={onCancelRoute}
+                                        className="w-full px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200
+                                            flex items-center justify-center gap-2 shadow-sm
+                                            bg-red-500 text-white hover:bg-red-600"
+                                        title="Cancelar ruta activa"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                        <span>Cancelar Ruta</span>
+                                    </button>
+                                )}
+                            </div>
+
                             {/* Turistas Activos */}
                             <div className="bg-gray-50 rounded-lg p-5 border border-gray-100">
                                 <div className="flex items-start justify-between mb-3">

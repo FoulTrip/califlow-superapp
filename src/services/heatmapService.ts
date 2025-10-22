@@ -46,17 +46,18 @@ export interface HeatmapResponse {
  */
 export async function getCurrentHeatmap(accessToken?: string): Promise<HeatmapResponse> {
     try {
-        const response = await axios.get(`${API_URL}/heatmap/current`, {
+        // Usar la ruta API local que maneja el mock
+        const response = await axios.get('/api/heatmap', {
             headers: accessToken ? {
                 'Authorization': `Bearer ${accessToken}`
             } : {}
         })
-        console.log(response.data)
+        console.log('📊 Heatmap data received:', response.data)
         return response.data
     } catch (error) {
-        console.error('Error fetching current heatmap:', error)
+        console.error('❌ Error fetching current heatmap:', error)
         throw error
-        
+
     }
 }
 

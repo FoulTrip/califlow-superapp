@@ -135,6 +135,14 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
     // Efecto para manejar la conexión Socket.IO
     useEffect(() => {
+        // Verificar si Socket.IO está habilitado
+        const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL
+
+        if (!socketUrl) {
+            console.log('ℹ️ Socket.IO no configurado (NEXT_PUBLIC_SOCKET_URL no definido)')
+            return
+        }
+
         // Solo conectar si hay userId disponible
         if (!userId) {
             console.log('⏳ Esperando userId de la sesión...')
@@ -142,11 +150,12 @@ export function SocketProvider({ children }: SocketProviderProps) {
         }
 
         // Conectar a Socket.IO server con userId en auth
-        const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL!, {
+        const socketInstance = io(socketUrl, {
             transports: ["websocket", "polling"],
             reconnection: true,
             reconnectionDelay: 1000,
-            reconnectionAttempts: 5,
+            reconnectionAttempts: 3, // Reducir intentos de reconexión
+            timeout: 5000, // Timeout de 5 segundos
             auth: {
                 userId: userId
             }
@@ -166,7 +175,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
         })
 
         socketInstance.on("connect_error", (error) => {
-            console.error("Error de conexión Socket.IO:", error.message)
+            console.warn("⚠️ Socket.IO no disponible:", error.message)
             setIsConnected(false)
         })
 
